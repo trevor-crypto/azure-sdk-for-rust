@@ -12,7 +12,7 @@
 //! ```
 
 #[doc(inline)]
-pub use crate::{ConsistencyLevel, CosmosError, MaxItemCount, PartitionKeys};
+pub use crate::{ConsistencyLevel, CosmosError, MaxItemCount, PartitionKey, PartitionKeys};
 
 #[doc(inline)]
 pub use crate::clients::*;

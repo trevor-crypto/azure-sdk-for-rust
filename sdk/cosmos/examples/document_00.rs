@@ -10,12 +10,18 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 struct MySampleStruct<'a> {
     id: Cow<'a, str>,
     a_string: Cow<'a, str>,
     a_number: u64,
     a_timestamp: i64,
+}
+
+impl<'a> azure_cosmos::PartitionKey<'a, &'a str> for MySampleStruct<'a> {
+    fn partition_key(&'a self) -> &'a str {
+        self.id.as_ref()
+    }
 }
 
 const DATABASE: &str = "azuresdktestdb";
@@ -123,12 +129,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Now that we have a database and a collection we can insert
     // data in them. Let's create a Document. The only constraint
     // is that we need an id and an arbitrary, Serializable type.
-    let doc = Document::new(MySampleStruct {
+    let doc_to_insert = MySampleStruct {
         id: Cow::Owned("unique_id100".to_owned()),
         a_string: Cow::Borrowed("Something here"),
         a_number: 100,
         a_timestamp: chrono::Utc::now().timestamp(),
-    });
+    };
+
+    let doc = Document::new(doc_to_insert.clone());
 
     // Now we store the struct in Azure Cosmos DB.
     // Notice how easy it is! :)
@@ -139,10 +147,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // The method create_document will return, upon success,
     // the document attributes.
+
     let create_document_response = collection_client
         .create_document()
-        .partition_keys([&doc.document.id])
-        .execute(&doc)
+        .execute(&doc_to_insert)
         .await?;
     println!(
         "create_document_response == {:#?}",

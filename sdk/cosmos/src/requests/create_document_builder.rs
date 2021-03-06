@@ -1,3 +1,4 @@
+use crate::partition_key::add_as_header_to_builder;
 use crate::prelude::*;
 use crate::resources::ResourceType;
 use crate::responses::CreateDocumentResponse;
@@ -11,7 +12,6 @@ use std::convert::TryFrom;
 #[derive(Debug, Clone)]
 pub struct CreateDocumentBuilder<'a, 'b> {
     collection_client: &'a CollectionClient,
-    partition_keys: Option<PartitionKeys>,
     is_upsert: IsUpsert,
     indexing_directive: IndexingDirective,
     if_match_condition: Option<IfMatchCondition<'b>>,
@@ -26,7 +26,6 @@ impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
     pub(crate) fn new(collection_client: &'a CollectionClient) -> Self {
         Self {
             collection_client,
-            partition_keys: None,
             is_upsert: IsUpsert::No,
             indexing_directive: IndexingDirective::Default,
             if_match_condition: None,
@@ -49,14 +48,13 @@ impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
         allow_tentative_writes: TenativeWritesAllowance,
         is_upsert: bool => if is_upsert { IsUpsert::Yes } else { IsUpsert::No },
         indexing_directive: IndexingDirective,
-        partition_keys: PartitionKeys => Some(partition_keys),
     }
 }
 
-impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
-    pub async fn execute<T: Serialize>(
+impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
+    pub async fn execute<PK: Serialize + 'c, T: Serialize + PartitionKey<'c, PK>>(
         &self,
-        document: &T,
+        document: &'c T,
     ) -> Result<CreateDocumentResponse, CosmosError> {
         let mut req = self.collection_client.cosmos_client().prepare_request(
             &format!(
@@ -68,12 +66,13 @@ impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
             ResourceType::Documents,
         );
 
+        req = add_as_header_to_builder(document, req)?;
+
         req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
         req = azure_core::headers::add_optional_header(&self.if_modified_since, req);
         req = azure_core::headers::add_optional_header(&self.user_agent, req);
         req = azure_core::headers::add_optional_header(&self.activity_id, req);
         req = azure_core::headers::add_optional_header(&self.consistency_level, req);
-        req = azure_core::headers::add_optional_header(&self.partition_keys.as_ref(), req);
         req = azure_core::headers::add_mandatory_header(&self.is_upsert, req);
         req = azure_core::headers::add_mandatory_header(&self.indexing_directive, req);
         req = azure_core::headers::add_mandatory_header(&self.allow_tentative_writes, req);
