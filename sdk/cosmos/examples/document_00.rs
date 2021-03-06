@@ -18,7 +18,7 @@ struct MySampleStruct<'a> {
     a_timestamp: i64,
 }
 
-impl<'a> azure_cosmos::PartitionKey<'a, &'a str> for MySampleStruct<'a> {
+impl<'a> azure_cosmos::CosmosEntity<'a, &'a str> for MySampleStruct<'a> {
     fn partition_key(&'a self) -> &'a str {
         self.id.as_ref()
     }

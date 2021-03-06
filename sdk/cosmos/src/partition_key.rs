@@ -3,7 +3,7 @@ use http::request::Builder;
 use serde::Serialize;
 
 /// CosmosDB partition key. Every CosmosDB entity must implement it.
-pub trait PartitionKey<'a, T: Serialize + 'a> {
+pub trait CosmosEntity<'a, T: Serialize + 'a> {
     /// This function returns the partition key value as reference. Implement it by returning
     /// a reference of your partition key.
     fn partition_key(&'a self) -> T;
@@ -13,7 +13,7 @@ pub trait PartitionKey<'a, T: Serialize + 'a> {
 // with serde_json returns a Result. I am not sure why a serialization could fail (memory
 // allocation)? In case we are confident that no errors should arise we can implement the trait and just
 // unwrap the result of serde_json::to_string.
-pub(crate) fn add_as_header_to_builder<'a, T: Serialize + 'a, P: PartitionKey<'a, T> + 'a>(
+pub(crate) fn add_as_header_to_builder<'a, T: Serialize + 'a, P: CosmosEntity<'a, T> + 'a>(
     pk: &'a P,
     builder: Builder,
 ) -> Result<Builder, serde_json::Error> {

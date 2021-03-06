@@ -115,7 +115,7 @@ mod to_json_vector;
 
 pub use consistency_level::ConsistencyLevel;
 pub use max_item_count::MaxItemCount;
-pub use partition_key::PartitionKey;
+pub use partition_key::CosmosEntity;
 pub use partition_keys::PartitionKeys;
 pub use resource_quota::ResourceQuota;
 

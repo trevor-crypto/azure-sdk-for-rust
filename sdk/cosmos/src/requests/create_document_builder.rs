@@ -52,7 +52,7 @@ impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
 }
 
 impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
-    pub async fn execute<PK: Serialize + 'c, T: Serialize + PartitionKey<'c, PK>>(
+    pub async fn execute<PK: Serialize + 'c, T: Serialize + CosmosEntity<'c, PK>>(
         &self,
         document: &'c T,
     ) -> Result<CreateDocumentResponse, CosmosError> {
