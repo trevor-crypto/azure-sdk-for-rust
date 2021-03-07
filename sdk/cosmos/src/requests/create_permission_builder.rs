@@ -10,6 +10,7 @@ use std::convert::TryInto;
 #[derive(Debug, Clone)]
 pub struct CreatePermissionBuilder<'a, 'b> {
     permission_client: &'a PermissionClient,
+    // TODO: use this field
     expiry_seconds: ExpirySeconds,
     user_agent: Option<UserAgent<'b>>,
     activity_id: Option<ActivityId<'b>>,

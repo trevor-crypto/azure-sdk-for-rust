@@ -1,7 +1,22 @@
 use azure_core::HttpClient;
 use azure_cosmos::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::error::Error;
 use std::sync::Arc;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct MySampleStruct<'a> {
+    id: Cow<'a, str>,
+    age: u32,
+    phones: Vec<Cow<'a, str>>,
+}
+
+impl<'a> azure_cosmos::CosmosEntity<'a, &'a str> for MySampleStruct<'a> {
+    fn partition_key(&'a self) -> &'a str {
+        self.id.as_ref()
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -96,16 +111,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // authorization_token just created. It will fail.
     // The collection should have /id as partition key
     // for this example to work.
-    let data = r#"
-        {
-            "id": "Gianluigi Bombatomica",
-            "age": 43,
-            "phones": [
-                "+39 1234567",
-                "+39 2345678"
-            ]
-        }"#;
-    let document = Document::new(serde_json::from_str::<serde_json::Value>(data)?);
+    let document = MySampleStruct {
+        id: Cow::Borrowed("Gianluigi Bombatomica"),
+        age: 43,
+        phones: vec![Cow::Borrowed("+39 1234567"), Cow::Borrowed("+39 2345678")],
+    };
     println!(
         "Trying to insert {:#?} into the collection with a read-only authorization_token.",
         document
@@ -117,7 +127,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .into_collection_client(collection_name.clone())
         .create_document()
         .is_upsert(true)
-        .partition_keys(["Gianluigi Bombatomica"])
         .execute(&document)
         .await
     {
@@ -157,7 +166,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .into_collection_client(collection_name)
         .create_document()
         .is_upsert(true)
-        .partition_keys(["Gianluigi Bombatomica"])
         .execute(&document)
         .await?;
     println!(

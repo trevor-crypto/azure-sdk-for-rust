@@ -2,6 +2,7 @@ use azure_core::HttpClient;
 use azure_cosmos::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::error::Error;
 use std::sync::Arc;
 
@@ -13,6 +14,20 @@ struct MyStruct {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct MyStruct2 {}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+struct MySampleStruct<'a> {
+    id: Cow<'a, str>,
+    name: Cow<'a, str>,
+    age: u32,
+    phones: Vec<Cow<'a, str>>,
+}
+
+impl<'a> azure_cosmos::CosmosEntity<'a, &'a str> for MySampleStruct<'a> {
+    fn partition_key(&'a self) -> &'a str {
+        self.id.as_ref()
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -41,22 +56,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             if collection_client.collection_name() == "democ" {
                 println!("democ!");
 
-                let data = r#"
-                {
-                    "id": "my_id",
-                    "name": "John Tonno7",
-                    "age": 43,
-                    "phones": [
-                        "+44 1234567",
-                        "+44 2345678"
-                    ]
-                }"#;
-                let v: Value = serde_json::from_str(data)?;
+                let document = MySampleStruct {
+                    id: Cow::Borrowed("my_id"),
+                    name: "John Tonno7".into(),
+                    age: 43,
+                    phones: vec![Cow::Borrowed("+39 1234567"), Cow::Borrowed("+39 2345678")],
+                };
 
-                let document = Document::new(v);
                 let resp = collection_client
                     .create_document()
-                    .partition_keys([43u32])
                     .is_upsert(true)
                     .execute(&document)
                     .await?;

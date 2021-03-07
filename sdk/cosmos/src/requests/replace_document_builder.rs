@@ -9,8 +9,7 @@ use std::convert::TryInto;
 
 #[derive(Debug, Clone)]
 pub struct ReplaceDocumentBuilder<'a, 'b> {
-    collection_client: &'a CollectionClient,
-    document_id: &'a str,
+    document_client: &'a DocumentClient,
     partition_key: Option<String>,
     indexing_directive: IndexingDirective,
     if_match_condition: Option<IfMatchCondition<'b>>,
@@ -22,10 +21,9 @@ pub struct ReplaceDocumentBuilder<'a, 'b> {
 }
 
 impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
-    pub(crate) fn new(collection_client: &'a CollectionClient, document_id: &'a str) -> Self {
+    pub(crate) fn new(document_client: &'a DocumentClient) -> Self {
         Self {
-            collection_client,
-            document_id,
+            document_client,
             partition_key: None,
             indexing_directive: IndexingDirective::Default,
             if_match_condition: None,
@@ -49,35 +47,27 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
         indexing_directive: IndexingDirective,
     }
 
-    pub fn partition_key<PK: serde::Serialize>(self, pk: &PK) -> Result<Self, serde_json::Error> {
-        Ok(Self {
-            partition_key: Some(crate::cosmos_entity::serialize_partition_key_to_string(pk)?),
-            ..self
-        })
-    }
-
     pub async fn execute<T>(&self, document: &T) -> Result<ReplaceDocumentResponse, CosmosError>
     where
         T: Serialize,
     {
         trace!("ReplaceDocumentBuilder::execute() called");
 
-        let req = self.collection_client.cosmos_client().prepare_request(
+        let req = self.document_client.cosmos_client().prepare_request(
             &format!(
                 "dbs/{}/colls/{}/docs/{}",
-                self.collection_client.database_client().database_name(),
-                self.collection_client.collection_name(),
-                self.document_id
+                self.document_client.database_client().database_name(),
+                self.document_client.collection_client().collection_name(),
+                self.document_client.document_name()
             ),
             http::Method::PUT,
             ResourceType::Documents,
         );
 
-        let req = if let Some(pk) = self.partition_key.as_ref() {
-            crate::cosmos_entity::add_as_partition_key_header_serialized(&pk, req)
-        } else {
-            req
-        };
+        let req = crate::cosmos_entity::add_as_partition_key_header_serialized(
+            self.document_client.partition_key_serialized(),
+            req,
+        );
 
         let req = azure_core::headers::add_mandatory_header(&self.indexing_directive, req);
         let req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
@@ -93,7 +83,7 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
         debug!("request == {:#?}", req);
 
         Ok(self
-            .collection_client
+            .document_client
             .http_client()
             .execute_request_check_status(req, StatusCode::OK)
             .await?

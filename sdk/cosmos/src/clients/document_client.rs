@@ -8,7 +8,7 @@ use serde::Serialize;
 #[derive(Debug, Clone)]
 pub struct DocumentClient {
     collection_client: CollectionClient,
-    document_name: ReadonlyString,
+    document_name: String,
     partition_key_serialized: String,
 }
 
@@ -18,7 +18,7 @@ impl DocumentClient {
     /// representation is generated as soon as you call the `new` function. This avoids doing the
     /// serialization over and over, saving time. It also releases the borrow since the serialized
     /// string is owned by the DocumentClient.
-    pub(crate) fn new<S: Into<ReadonlyString>, PK: Serialize>(
+    pub(crate) fn new<S: Into<String>, PK: Serialize>(
         collection_client: CollectionClient,
         document_name: S,
         partition_key: &PK,
@@ -55,6 +55,11 @@ impl DocumentClient {
     /// Get the partition key
     pub fn partition_key_serialized(&self) -> &str {
         &self.partition_key_serialized
+    }
+
+    /// replace a document in a collection
+    pub fn replace_document<'a>(&'a self) -> requests::ReplaceDocumentBuilder<'a, '_> {
+        requests::ReplaceDocumentBuilder::new(self)
     }
 
     /// Get a document

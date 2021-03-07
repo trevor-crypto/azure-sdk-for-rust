@@ -64,14 +64,6 @@ impl CollectionClient {
         requests::CreateDocumentBuilder::new(self)
     }
 
-    /// replace a document in a collection
-    pub fn replace_document<'a>(
-        &'a self,
-        document_id: &'a str,
-    ) -> requests::ReplaceDocumentBuilder<'a, '_> {
-        requests::ReplaceDocumentBuilder::new(self, document_id)
-    }
-
     /// query documents in a collection
     pub fn query_documents(&self) -> requests::QueryDocumentsBuilder<'_, '_> {
         requests::QueryDocumentsBuilder::new(self)
@@ -98,7 +90,7 @@ impl CollectionClient {
     }
 
     /// convert into a [`DocumentClient`]
-    pub fn into_document_client<S: Into<ReadonlyString>, PK: Serialize>(
+    pub fn into_document_client<S: Into<String>, PK: Serialize>(
         self,
         document_name: S,
         partition_key: &PK,
