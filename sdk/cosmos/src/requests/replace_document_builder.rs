@@ -11,7 +11,7 @@ use std::convert::TryInto;
 pub struct ReplaceDocumentBuilder<'a, 'b> {
     collection_client: &'a CollectionClient,
     document_id: &'a str,
-    partition_keys: Option<PartitionKeys>,
+    partition_key: Option<String>,
     indexing_directive: IndexingDirective,
     if_match_condition: Option<IfMatchCondition<'b>>,
     if_modified_since: Option<IfModifiedSince<'b>>,
@@ -26,7 +26,7 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
         Self {
             collection_client,
             document_id,
-            partition_keys: None,
+            partition_key: None,
             indexing_directive: IndexingDirective::Default,
             if_match_condition: None,
             if_modified_since: None,
@@ -47,11 +47,15 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
         if_modified_since: &'b DateTime<Utc> => Some(IfModifiedSince::new(if_modified_since)),
         allow_tentative_writes: TenativeWritesAllowance,
         indexing_directive: IndexingDirective,
-        partition_keys: PartitionKeys => Some(partition_keys),
     }
-}
 
-impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
+    pub fn partition_key<PK: serde::Serialize>(self, pk: &PK) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            partition_key: Some(crate::cosmos_entity::serialize_partition_key_to_string(pk)?),
+            ..self
+        })
+    }
+
     pub async fn execute<T>(&self, document: &T) -> Result<ReplaceDocumentResponse, CosmosError>
     where
         T: Serialize,
@@ -69,13 +73,18 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
             ResourceType::Documents,
         );
 
+        let req = if let Some(pk) = self.partition_key.as_ref() {
+            crate::cosmos_entity::add_as_partition_key_header_serialized(&pk, req)
+        } else {
+            req
+        };
+
         let req = azure_core::headers::add_mandatory_header(&self.indexing_directive, req);
         let req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
         let req = azure_core::headers::add_optional_header(&self.if_modified_since, req);
         let req = azure_core::headers::add_optional_header(&self.user_agent, req);
         let req = azure_core::headers::add_optional_header(&self.activity_id, req);
         let req = azure_core::headers::add_optional_header(&self.consistency_level, req);
-        let req = azure_core::headers::add_optional_header(&self.partition_keys.as_ref(), req);
         let req = azure_core::headers::add_mandatory_header(&self.allow_tentative_writes, req);
 
         let serialized = azure_core::to_json(document)?;

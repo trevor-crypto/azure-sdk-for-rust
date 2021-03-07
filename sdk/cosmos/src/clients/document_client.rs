@@ -26,7 +26,9 @@ impl DocumentClient {
         Ok(Self {
             collection_client,
             document_name: document_name.into(),
-            partition_key_serialized: serde_json::to_string(&[partition_key])?,
+            partition_key_serialized: crate::cosmos_entity::serialize_partition_key_to_string(
+                partition_key,
+            )?,
         })
     }
 
