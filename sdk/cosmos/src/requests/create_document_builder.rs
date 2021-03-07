@@ -1,4 +1,4 @@
-use crate::partition_key::add_as_header_to_builder;
+use crate::cosmos_entity::add_as_partition_key_header;
 use crate::prelude::*;
 use crate::resources::ResourceType;
 use crate::responses::CreateDocumentResponse;
@@ -66,7 +66,7 @@ impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
             ResourceType::Documents,
         );
 
-        req = add_as_header_to_builder(document, req)?;
+        req = add_as_partition_key_header(document, req)?;
 
         req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
         req = azure_core::headers::add_optional_header(&self.if_modified_since, req);
