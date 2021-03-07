@@ -109,14 +109,12 @@ mod cosmos_entity;
 mod errors;
 mod headers;
 mod max_item_count;
-mod partition_keys;
 mod resource_quota;
 mod to_json_vector;
 
 pub use consistency_level::ConsistencyLevel;
 pub use cosmos_entity::CosmosEntity;
 pub use max_item_count::MaxItemCount;
-pub use partition_keys::PartitionKeys;
 pub use resource_quota::ResourceQuota;
 
 /// A general error having to do with Cosmos.
