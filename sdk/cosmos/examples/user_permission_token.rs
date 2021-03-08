@@ -5,19 +5,6 @@ use std::borrow::Cow;
 use std::error::Error;
 use std::sync::Arc;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-struct MySampleStruct<'a> {
-    id: Cow<'a, str>,
-    age: u32,
-    phones: Vec<Cow<'a, str>>,
-}
-
-impl<'a> azure_cosmos::CosmosEntity<'a, &'a str> for MySampleStruct<'a> {
-    fn partition_key(&'a self) -> &'a str {
-        self.id.as_ref()
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // First we retrieve the account name and master key from environment variables.
