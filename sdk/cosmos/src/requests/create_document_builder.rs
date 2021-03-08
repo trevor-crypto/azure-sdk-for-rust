@@ -1,4 +1,7 @@
-use crate::cosmos_entity::add_as_partition_key_header;
+use crate::cosmos_entity::{
+    add_as_partition_key_header, add_as_partition_key_header_serialized,
+    serialize_partition_key_to_string,
+};
 use crate::prelude::*;
 use crate::resources::ResourceType;
 use crate::responses::CreateDocumentResponse;
@@ -52,10 +55,15 @@ impl<'a, 'b> CreateDocumentBuilder<'a, 'b> {
 }
 
 impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
-    pub async fn execute<PK: Serialize + 'c, T: Serialize + CosmosEntity<'c, PK>>(
+    async fn execute_internal<DOC, FNPK>(
         &self,
-        document: &'c T,
-    ) -> Result<CreateDocumentResponse, CosmosError> {
+        document: &'c DOC,
+        fn_add_primary_key: FNPK,
+    ) -> Result<CreateDocumentResponse, CosmosError>
+    where
+        DOC: Serialize,
+        FNPK: FnOnce(http::request::Builder) -> Result<http::request::Builder, serde_json::Error>,
+    {
         let mut req = self.collection_client.cosmos_client().prepare_request(
             &format!(
                 "dbs/{}/colls/{}/docs",
@@ -66,7 +74,7 @@ impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
             ResourceType::Documents,
         );
 
-        req = add_as_partition_key_header(document, req)?;
+        req = fn_add_primary_key(req)?;
 
         req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
         req = azure_core::headers::add_optional_header(&self.if_modified_since, req);
@@ -107,5 +115,29 @@ impl<'a, 'b, 'c> CreateDocumentBuilder<'a, 'b> {
         }
 
         CreateDocumentResponse::try_from(response)
+    }
+
+    pub async fn execute_with_partition_key<DOC: Serialize, PK: Serialize>(
+        &self,
+        document: &'c DOC,
+        partition_key: &PK,
+    ) -> Result<CreateDocumentResponse, CosmosError> {
+        self.execute_internal(document, |req| {
+            Ok(add_as_partition_key_header_serialized(
+                &serialize_partition_key_to_string(partition_key)?,
+                req,
+            ))
+        })
+        .await
+    }
+
+    pub async fn execute<PK: Serialize + 'c, T: Serialize + CosmosEntity<'c, PK>>(
+        &self,
+        document: &'c T,
+    ) -> Result<CreateDocumentResponse, CosmosError> {
+        self.execute_internal(document, |req| {
+            Ok(add_as_partition_key_header(document, req)?)
+        })
+        .await
     }
 }

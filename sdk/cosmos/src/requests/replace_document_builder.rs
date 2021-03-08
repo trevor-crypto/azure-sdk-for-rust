@@ -1,3 +1,6 @@
+use crate::cosmos_entity::{
+    add_as_partition_key_header_serialized, serialize_partition_key_to_string,
+};
 use crate::prelude::*;
 use crate::resources::ResourceType;
 use crate::responses::ReplaceDocumentResponse;
@@ -47,9 +50,14 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
         indexing_directive: IndexingDirective,
     }
 
-    pub async fn execute<T>(&self, document: &T) -> Result<ReplaceDocumentResponse, CosmosError>
+    pub async fn execute_internal<T, FNPK>(
+        &self,
+        document: &T,
+        fn_add_primary_key: FNPK,
+    ) -> Result<ReplaceDocumentResponse, CosmosError>
     where
         T: Serialize,
+        FNPK: FnOnce(http::request::Builder) -> Result<http::request::Builder, serde_json::Error>,
     {
         trace!("ReplaceDocumentBuilder::execute() called");
 
@@ -64,10 +72,7 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
             ResourceType::Documents,
         );
 
-        let req = crate::cosmos_entity::add_as_partition_key_header_serialized(
-            self.document_client.partition_key_serialized(),
-            req,
-        );
+        let req = fn_add_primary_key(req)?;
 
         let req = azure_core::headers::add_mandatory_header(&self.indexing_directive, req);
         let req = azure_core::headers::add_optional_header(&self.if_match_condition, req);
@@ -88,5 +93,32 @@ impl<'a, 'b> ReplaceDocumentBuilder<'a, 'b> {
             .execute_request_check_status(req, StatusCode::OK)
             .await?
             .try_into()?)
+    }
+
+    pub async fn execute<T>(&self, document: &T) -> Result<ReplaceDocumentResponse, CosmosError>
+    where
+        T: Serialize,
+    {
+        self.execute_internal(document, |req| {
+            Ok(add_as_partition_key_header_serialized(
+                self.document_client.partition_key_serialized(),
+                req,
+            ))
+        })
+        .await
+    }
+
+    pub async fn execute_with_partition_key<DOC: Serialize, PK: Serialize>(
+        &self,
+        document: &DOC,
+        partition_key: &PK,
+    ) -> Result<ReplaceDocumentResponse, CosmosError> {
+        self.execute_internal(document, |req| {
+            Ok(add_as_partition_key_header_serialized(
+                &serialize_partition_key_to_string(partition_key)?,
+                req,
+            ))
+        })
+        .await
     }
 }

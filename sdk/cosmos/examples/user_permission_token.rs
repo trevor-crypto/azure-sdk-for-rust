@@ -111,15 +111,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // authorization_token just created. It will fail.
     // The collection should have /id as partition key
     // for this example to work.
-    let document = MySampleStruct {
-        id: Cow::Borrowed("Gianluigi Bombatomica"),
-        age: 43,
-        phones: vec![Cow::Borrowed("+39 1234567"), Cow::Borrowed("+39 2345678")],
-    };
-    println!(
-        "Trying to insert {:#?} into the collection with a read-only authorization_token.",
-        document
-    );
+    let data = r#"
+        {
+            "id": "Gianluigi Bombatomica",
+            "age": 43,
+            "phones": [
+                "+39 1234567",
+                "+39 2345678"
+            ]
+        }"#;
+    let document = serde_json::from_str::<serde_json::Value>(data)?;
 
     match client
         .clone()
@@ -127,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .into_collection_client(collection_name.clone())
         .create_document()
         .is_upsert(true)
-        .execute(&document)
+        .execute_with_partition_key(&document, &"Gianluigi Bombatomica")
         .await
     {
         Ok(_) => panic!("this should not happen!"),
@@ -166,7 +167,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .into_collection_client(collection_name)
         .create_document()
         .is_upsert(true)
-        .execute(&document)
+        .execute_with_partition_key(&document, &"Gianluigi Bombatomica")
         .await?;
     println!(
         "create_document_response == {:#?}",
